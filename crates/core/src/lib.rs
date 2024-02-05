@@ -28,10 +28,6 @@ pub mod env {
     pub const COMMUNE_SYNAPSE_ADMIN_TOKEN: &str = "COMMUNE_SYNAPSE_ADMIN_TOKEN";
     pub const COMMUNE_SYNAPSE_SERVER_NAME: &str = "COMMUNE_SYNAPSE_SERVER_NAME";
     pub const COMMUNE_REGISTRATION_SHARED_SECRET: &str = "COMMUNE_REGISTRATION_SHARED_SECRET";
-    pub const POSTGRES_HOST: &str = "POSTGRES_HOST";
-    pub const POSTGRES_USER: &str = "POSTGRES_USER";
-    pub const POSTGRES_PASSWORD: &str = "POSTGRES_PASSWORD";
-    pub const POSTGRES_DB: &str = "POSTGRES_DB";
     pub const REDIS_HOST: &str = "REDIS_HOST";
     pub const SMTP_HOST: &str = "SMTP_HOST";
     pub const MAILDEV_INCOMING_USER: &str = "MAILDEV_INCOMING_USER";
@@ -44,10 +40,6 @@ pub struct CommuneConfig {
     pub synapse_admin_token: String,
     pub synapse_server_name: String,
     pub synapse_registration_shared_secret: String,
-    pub postgres_host: String,
-    pub postgres_user: String,
-    pub postgres_password: String,
-    pub postgres_db: String,
     pub redis_host: Url,
     pub smtp_host: Url,
     pub maildev_incoming_user: Option<String>,
@@ -67,10 +59,6 @@ impl CommuneConfig {
             synapse_admin_token: Self::var(env::COMMUNE_SYNAPSE_ADMIN_TOKEN),
             synapse_server_name: Self::var(env::COMMUNE_SYNAPSE_SERVER_NAME),
             synapse_registration_shared_secret: Self::var(env::COMMUNE_REGISTRATION_SHARED_SECRET),
-            postgres_host: Self::var(env::POSTGRES_HOST),
-            postgres_user: Self::var(env::POSTGRES_USER),
-            postgres_password: Self::var(env::POSTGRES_PASSWORD),
-            postgres_db: Self::var(env::POSTGRES_DB),
             redis_host: Self::var(env::REDIS_HOST),
             smtp_host: Self::var(env::SMTP_HOST),
             maildev_incoming_user: Self::var_opt(env::MAILDEV_INCOMING_USER),
