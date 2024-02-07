@@ -3,7 +3,7 @@
 //! To use it, you will need to authenticate by providing an `access_token`
 //! for a server admin: see Admin API.
 
-use anyhow::Result;
+use anyhow::{Result, Error};
 use ruma_common::{serde::Raw, EventId, OwnedRoomAliasId, OwnedRoomId, OwnedUserId, RoomId};
 use ruma_events::{AnyMessageLikeEvent, AnyStateEvent};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -184,6 +184,31 @@ pub struct DeleteResponse {
     pub new_room_id: Option<OwnedRoomId>,
 }
 
+/// serde refuses to deserialize `std::result::Result` as an enum
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum ApiResult<T> {
+    Ok(T),
+    Err(ApiError),
+    EmptyBody {},
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ApiError {
+  errcode: String,
+  error: String,
+}
+
+impl<T> From<ApiResult<T>> for Result<T> {
+    fn from(value: ApiResult<T>) -> Self {
+        match value {
+            ApiResult::Ok(v) => Ok(v),
+            ApiResult::Err(ApiError { errcode, error }) => Err(Error::msg(format!("{error} ({errcode})"))),
+            ApiResult::EmptyBody {} => Err(Error::msg(format!("response body is empty ..."))),
+        }
+    }
+}
+
 impl RoomService {
     /// Returns information about a specific room
     ///
@@ -196,9 +221,9 @@ impl RoomService {
                 room_id = room_id
             ))
             .await?;
-        let data: Room = resp.json().await?;
+        let data: ApiResult<Room> = resp.json().await?;
 
-        Ok(data)
+        data.into()
     }
 
     /// Returns all rooms. By default, the response is ordered alphabetically by
@@ -210,9 +235,9 @@ impl RoomService {
         let resp = client
             .get_query("/_synapse/admin/v1/rooms", &params)
             .await?;
-        let data: ListResponse = resp.json().await?;
+        let data: ApiResult<ListResponse> = resp.json().await?;
 
-        Ok(data)
+        data.into()
     }
 
     /// Allows a server admin to get a list of all members of a room
@@ -226,9 +251,9 @@ impl RoomService {
                 room_id = room_id
             ))
             .await?;
-        let data: MembersResponse = resp.json().await?;
+        let data: ApiResult<MembersResponse> = resp.json().await?;
 
-        Ok(data)
+        data.into()
     }
 
     /// Allows a server admin to get all messages sent to a room in a given
@@ -243,9 +268,9 @@ impl RoomService {
                 room_id = room_id
             ))
             .await?;
-        let data: StateResponse = resp.json().await?;
+        let data: ApiResult<StateResponse> = resp.json().await?;
 
-        Ok(data)
+        data.into()
     }
 
     /// Allows a server admin to get the `event_id` of the closest event to the
@@ -267,9 +292,9 @@ impl RoomService {
                 &params,
             )
             .await?;
-        let data: TimestampToEventResponse = resp.json().await?;
+        let data: ApiResult<TimestampToEventResponse> = resp.json().await?;
 
-        Ok(data)
+        data.into()
     }
 
     /// Allows a server admin to check the status of forward extremities for a
@@ -287,9 +312,9 @@ impl RoomService {
                 room_id = room_id
             ))
             .await?;
-        let data: CheckForwardExtremitiesResponse = resp.json().await?;
+        let data: ApiResult<CheckForwardExtremitiesResponse> = resp.json().await?;
 
-        Ok(data)
+        data.into()
     }
 
     /// Allows a server admin to delete forward extremities for a room
@@ -307,9 +332,9 @@ impl RoomService {
                 room_id = room_id
             ))
             .await?;
-        let data: DeleteForwardExtremitiesResponse = resp.json().await?;
+        let data: ApiResult<DeleteForwardExtremitiesResponse> = resp.json().await?;
 
-        Ok(data)
+        data.into()
     }
 
     /// allows server admins to remove rooms from the server and block these
@@ -328,9 +353,9 @@ impl RoomService {
                 &params,
             )
             .await?;
-        let data: DeleteResponse = resp.json().await?;
+        let data: ApiResult<DeleteResponse> = resp.json().await?;
 
-        Ok(data)
+        data.into()
     }
 }
 
@@ -353,10 +378,9 @@ impl RoomService {
                 &params,
             )
             .await?;
+        let data: ApiResult<_> = resp.json().await?;
 
-        let data = resp.json().await?;
-
-        Ok(data)
+        data.into()
     }
 
     /// This API lets a client find the context of an event. This is designed
@@ -380,9 +404,9 @@ impl RoomService {
                 &params,
             )
             .await?;
-        let data: EventContextResponse = resp.json().await?;
+        let data: ApiResult<EventContextResponse> = resp.json().await?;
 
-        Ok(data)
+        data.into()
     }
 }
 

@@ -10,6 +10,7 @@ path = "src/lib.rs"
 
 [dependencies]
 fake = { version = "2.9.2", features = ["derive"] }
+async-once-cell = "0.5.3"
 scraper = "0.18.1"
 
 # Workspace Dependencies
@@ -21,7 +22,7 @@ openssl = { workspace = true, features = ["vendored"] }
 serde = { workspace = true }
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "macros"] }
 url = { workspace = true }
-uuid = { workspace = true, features= ["serde"] }
+uuid = { workspace = true, features = ["serde"] }
 
 # Local Dependencies
 core = { path = "../core" }
