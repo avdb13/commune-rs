@@ -25,11 +25,13 @@ mod space;
 pub mod events {
     pub use ruma_events::*;
 
-    pub use ruma_common::serde::Raw;
-
     pub mod space {
         pub use ruma_events::space::*;
 
         pub use crate::space::*;
     }
+
+    pub mod exports {}
 }
+
+pub use ruma_common;
