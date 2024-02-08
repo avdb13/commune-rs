@@ -1,0 +1,36 @@
+use axum::{
+    async_trait,
+    extract::{FromRequest, Path, Request},
+    Json,
+};
+use commune::events::{
+    ruma_common::{OwnedRoomId, OwnedTransactionId},
+    space::board::{BoardLikeEventType, BoardPostEventContent, BoardReplyEventContent}, MessageLikeEventContent,
+};
+
+struct Content<T>(T);
+
+#[async_trait]
+impl<S, T> FromRequest<S> for Content<T>
+where
+    S: Send + Sync,
+    Json<T>: FromRequest<()>,
+    T: 'static,
+{
+    type Rejection = Response;
+
+    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
+        let Path((board_id, event_type, txn_id)): Path<(
+            OwnedRoomId,
+            BoardLikeEventType,
+            OwnedTransactionId,
+        )> = Path::from_request(req, state).await?;
+
+        let result: Box<dyn MessageLikeEventContent> = match event_type {
+            BoardLikeEventType::Post => Json::<BoardPostEventContent>::from_request(req, state).await.map(|json| Box::new(json.0))?,
+            BoardLikeEventType::Reply => Json::<BoardReplyEventContent>::from_request(req, state).await.map(|json| Box::new(json.0))?,
+        };
+
+        Err(StatusCode::UNSUPPORTED_MEDIA_TYPE.into_response())
+    }
+}

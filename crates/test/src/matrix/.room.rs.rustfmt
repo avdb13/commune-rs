@@ -1,0 +1,67 @@
+use commune::account::service::CreateUnverifiedAccountDto;
+use fake::{
+    faker,
+    faker::internet::en::{Password, SafeEmail, Username},
+    Fake,
+};
+use matrix::{admin::resources::room::{DeleteParams, ListParams, RoomService as AdminRoomService, ListResponse}, Client};
+
+use commune::{room::service::CreateRoomDto, util::secret::Secret};
+
+use crate::tools::environment::Environment;
+
+pub fn create_user() -> CreateUnverifiedAccountDto {
+    let username: String = Username().fake();
+    let password = Secret::new(Password(10..20).fake::<String>());
+    let email: String = SafeEmail().fake();
+
+    CreateUnverifiedAccountDto {
+        username: username.chars().take(12).collect(),
+        password,
+        email,
+    }
+}
+
+fn create_rooms(i: usize) -> Vec<CreateRoomDto> {
+    (0..i).map(|i| {
+        CreateRoomDto { name:format!(
+            "{i} - {username}'s room",
+        )
+            , topic:format!(
+            "{i} - discussion about {}",
+            faker::company::en::Buzzword().fake::<String>()
+        )
+                , alias:format!("{i}-{username}")
+        }
+    }).collect()
+}
+
+async fn remove_all(client: Client) {
+    let ListResponse { rooms, .. } = AdminRoomService::get_all(&client, ListParams::default())
+        .await
+        .unwrap();
+
+    for room in rooms {
+        AdminRoomService::delete_room(
+            &client,
+            room.room_id.as_ref(),
+            DeleteParams {
+                new_room: None,
+                block: true,
+                purge: true,
+            },
+        )
+        .await
+        .unwrap();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn list_room() {
+
+    }
+}

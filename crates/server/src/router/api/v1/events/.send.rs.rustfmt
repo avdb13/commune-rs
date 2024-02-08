@@ -1,0 +1,51 @@
+use axum::extract::Path;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use axum::{Extension, Json};
+use commune::events::ruma_common::{OwnedRoomId, OwnedTransactionId};
+use commune::events::space::board::AnyBoardEventContent;
+use commune::events::MessageLikeEventType;
+use serde_json::json;
+
+use crate::router::api::ApiError;
+use crate::router::middleware::AccessToken;
+use crate::services::SharedServices;
+use AnyBoardEventContent::*;
+
+pub async fn handler(
+    Extension(services): Extension<SharedServices>,
+    Extension(access_token): Extension<AccessToken>,
+    Path((board_id, event_type, txn_id)): Path<(
+        OwnedRoomId,
+        MessageLikeEventType,
+        OwnedTransactionId,
+    )>,
+    Json(content): Json<AnyBoardEventContent>,
+) -> Response {
+    let request = match content {
+        BoardPost(content) => {
+            services
+                .commune
+                .events
+                .send_post(access_token.into(), content, &board_id, &txn_id)
+                .await
+        }
+        BoardReply(content) => {
+            services
+                .commune
+                .events
+                .send_reply(access_token.into(), content, &board_id, &txn_id)
+                .await
+        }
+    };
+
+    match request {
+        Ok(resp) => {
+            let mut response = Json(json!({"event_id": resp.0})).into_response();
+
+            *response.status_mut() = StatusCode::OK;
+            response
+        }
+        Err(err) => ApiError::from(err).into_response(),
+    }
+}
