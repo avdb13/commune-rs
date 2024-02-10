@@ -1,8 +1,33 @@
-use ruma_common::OwnedEventId;
-use ruma_events::room::message::{deserialize_relation, FormattedBody, Relation};
-use ruma_events::Mentions;
+use ruma_common::serde::Raw;
+use ruma_events::{
+    exports::serde_json,
+    room::message::{deserialize_relation, FormattedBody, Relation},
+    AnyMessageLikeEventContent, Mentions, MessageLikeEventType,
+};
 use ruma_macros::EventContent;
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+pub enum AnyBoardLikeEventContent {
+    Post(BoardPostEventContent),
+    Reply(BoardReplyEventContent),
+}
+
+impl TryFrom<(MessageLikeEventType, Raw<AnyMessageLikeEventContent>)> for AnyBoardLikeEventContent {
+    type Error = serde_json::Error;
+
+    fn try_from(
+        (event_type, content): (MessageLikeEventType, Raw<AnyMessageLikeEventContent>),
+    ) -> Result<Self, Self::Error> {
+        let event_type = event_type.to_string();
+
+        match event_type.as_ref() {
+            "space.board.post" => Ok(AnyBoardLikeEventContent::Post(content.deserialize_as()?)),
+            "space.board.reply" => Ok(AnyBoardLikeEventContent::Reply(content.deserialize_as()?)),
+            _ => Err(de::Error::custom("You provided an unknown event type")),
+        }
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize, EventContent)]
 #[ruma_event(type = "space.board.post", kind = MessageLike, without_relation)]
@@ -54,24 +79,18 @@ pub struct BoardReplyEventContent {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum VoteKind {
+#[serde(rename_all = "lowercase")]
+pub enum Vote {
     Up,
     Down,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(tag = "rel_type", rename = "space.board.vote")]
-pub struct Vote {
-    pub event_id: OwnedEventId,
-    pub key: VoteKind,
-}
+impl TryInto<String> for Vote {
+    type Error = serde_json::Error;
 
-#[derive(Clone, Debug, Deserialize, Serialize, EventContent)]
-#[ruma_event(type = "space.reaction", kind = MessageLike)]
-pub struct SpaceReactionEventContent {
-    #[serde(rename = "m.relates_to")]
-    pub relates_to: Vote,
+    fn try_into(self) -> Result<String, Self::Error> {
+        serde_json::to_string(&self)
+    }
 }
 
 impl BoardPostEventContent {
@@ -104,8 +123,8 @@ impl BoardPostEventContent {
 
     /// A convenience constructor to create a Markdown post.
     ///
-    /// Returns an HTML post if some Markdown formatting was detected, otherwise returns a plain
-    /// text post.
+    /// Returns an HTML post if some Markdown formatting was detected, otherwise
+    /// returns a plain text post.
     pub fn markdown(body: impl AsRef<str> + Into<String>) -> Self {
         if let Some(formatted) = FormattedBody::markdown(&body) {
             Self::html(body, formatted.body)
@@ -147,8 +166,8 @@ impl BoardReplyEventContent {
 
     /// A convenience constructor to create a Markdown post.
     ///
-    /// Returns an HTML post if some Markdown formatting was detected, otherwise returns a plain
-    /// text post.
+    /// Returns an HTML post if some Markdown formatting was detected, otherwise
+    /// returns a plain text post.
     pub fn markdown(body: impl AsRef<str> + Into<String>) -> Self {
         if let Some(formatted) = FormattedBody::markdown(&body) {
             Self::html(body, formatted.body)
@@ -158,29 +177,13 @@ impl BoardReplyEventContent {
     }
 }
 
-impl SpaceReactionEventContent {
-    pub fn new(relates_to: Vote) -> Self {
-        Self { relates_to }
-    }
-}
-
-impl From<Vote> for SpaceReactionEventContent {
-    fn from(relates_to: Vote) -> Self {
-        Self::new(relates_to)
-    }
-}
-
 #[allow(non_snake_case)]
 #[cfg(test)]
 mod tests {
     use assert_matches2::assert_matches;
     use ruma_common::exports::serde_json::{from_value, json};
 
-    use crate::space::board::{
-        BoardPostEventContent, BoardReplyEventContent, SpaceReactionEventContent,
-    };
-
-    use super::VoteKind;
+    use crate::space::board::{BoardPostEventContent, BoardReplyEventContent};
 
     #[test]
     fn post_deserialize() {
@@ -260,36 +263,5 @@ mod tests {
         });
 
         assert_matches!(from_value::<BoardReplyEventContent>(json), Err(_Error));
-    }
-
-    #[test]
-    fn vote_deserialize() {
-        let json = json!({
-            "m.relates_to": {
-                "rel_type": "space.board.vote",
-                "event_id": "$1598361704261elfgc:localhost",
-                "key": "up",
-            }
-        });
-
-        assert_matches!(
-            from_value::<SpaceReactionEventContent>(json),
-            Ok(SpaceReactionEventContent { relates_to })
-        );
-        assert_eq!(relates_to.event_id, "$1598361704261elfgc:localhost");
-        assert_eq!(relates_to.key, VoteKind::Up);
-    }
-
-    #[test]
-    fn vote_deserialize_err() {
-        let json = json!({
-            "m.relates_to": {
-                "rel_type": "space.board.vote",
-                "event_id": "$1598361704261elfgc:localhost",
-                "key": "moo",
-            }
-        });
-
-        assert_matches!(from_value::<SpaceReactionEventContent>(json), Err(_Error));
     }
 }

@@ -1,4 +1,4 @@
-use ruma_events::{EmptyStateKey};
+use ruma_events::EmptyStateKey;
 use ruma_macros::EventContent;
 use serde::{Deserialize, Serialize};
 

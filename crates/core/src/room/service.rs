@@ -1,26 +1,23 @@
 use std::sync::Arc;
 
 use tracing::instrument;
-use validator::Validate;
 
-use matrix::client::resources::room::{
-    Room as MatrixRoom, RoomPreset, RoomCreationContent, CreateRoomBody,
+use matrix::{
+    client::resources::room::{
+        CreateRoomBody, JoinRoomBody, Room as MatrixRoom, RoomCreationContent, RoomPreset,
+    },
+    ruma_common::{RoomId, UserId},
+    Client as MatrixAdminClient,
 };
-use matrix::Client as MatrixAdminClient;
 
-use crate::util::secret::Secret;
-use crate::{Error, Result};
+use crate::{util::secret::Secret, Error, Result};
 
-use super::error::RoomErrorCode;
 use super::model::Room;
 
-#[derive(Debug, Clone, Validate)]
+#[derive(Debug, Clone)]
 pub struct CreateRoomDto {
-    #[validate(length(min = 3, max = 255))]
     pub name: String,
-    #[validate(length(min = 3, max = 255))]
     pub topic: String,
-    #[validate(length(min = 3, max = 255))]
     pub alias: String,
 }
 
@@ -40,9 +37,6 @@ impl RoomService {
         access_token: &Secret,
         dto: CreateRoomDto,
     ) -> Result<Room> {
-        dto.validate()
-            .map_err(|err| Error::Room(RoomErrorCode::from(err)))?;
-
         match MatrixRoom::create(
             &self.admin,
             access_token.to_string(),
@@ -62,6 +56,86 @@ impl RoomService {
             }),
             Err(err) => {
                 tracing::error!("Failed to create room: {}", err);
+                Err(Error::Unknown)
+            }
+        }
+    }
+
+    /// Creates a Direct Chat Room
+    #[instrument(skip(self))]
+    pub async fn create_trusted_private_room(
+        &self,
+        access_token: &Secret,
+        invitee: &UserId,
+    ) -> Result<Room> {
+        match MatrixRoom::create(
+            &self.admin,
+            access_token.to_string(),
+            CreateRoomBody {
+                creation_content: Some(RoomCreationContent { federate: false }),
+                preset: Some(RoomPreset::TrustedPrivateChat),
+                is_direct: true,
+                invite: vec![invitee.to_owned()],
+                ..Default::default()
+            },
+        )
+        .await
+        {
+            Ok(room) => Ok(Room {
+                room_id: room.room_id,
+            }),
+            Err(err) => {
+                tracing::error!("Failed to create room: {}", err);
+                Err(Error::Unknown)
+            }
+        }
+    }
+
+    #[instrument(skip(self))]
+    pub async fn join_room(
+        &self,
+        access_token: &Secret,
+        room_id: &RoomId,
+        reason: String,
+    ) -> Result<Room> {
+        match MatrixRoom::join(
+            &self.admin,
+            access_token.to_string(),
+            room_id.into(),
+            JoinRoomBody { reason },
+        )
+        .await
+        {
+            Ok(room) => Ok(Room {
+                room_id: room.room_id,
+            }),
+            Err(err) => {
+                tracing::error!("Failed to join room: {}", err);
+                Err(Error::Unknown)
+            }
+        }
+    }
+
+    #[instrument(skip(self))]
+    pub async fn forget_room(
+        &self,
+        access_token: &Secret,
+        room_id: &RoomId,
+        reason: String,
+    ) -> Result<Room> {
+        match MatrixRoom::join(
+            &self.admin,
+            access_token.to_string(),
+            room_id.into(),
+            JoinRoomBody { reason },
+        )
+        .await
+        {
+            Ok(room) => Ok(Room {
+                room_id: room.room_id,
+            }),
+            Err(err) => {
+                tracing::error!("Failed to join room: {}", err);
                 Err(Error::Unknown)
             }
         }

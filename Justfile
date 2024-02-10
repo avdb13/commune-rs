@@ -29,6 +29,7 @@ nuke_db:
 # Generates the synapse configuration file and saves it
 gen_synapse_conf: dotenv
   docker run -i --rm \
+    -u $(id -u):$(id -g) \
     -v ./docker/synapse:/data \
     --env-file .env \
     matrixdotorg/synapse:v1.96.1 generate

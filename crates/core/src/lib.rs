@@ -5,6 +5,7 @@ pub mod events;
 pub mod mail;
 pub mod room;
 pub mod util;
+pub mod bridge;
 
 pub use error::{Error, HttpStatusCode, Result};
 

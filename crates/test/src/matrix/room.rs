@@ -1,6 +1,4 @@
-use commune::{
-    account::{model::Account, service::CreateUnverifiedAccountDto},
-};
+use commune::account::{model::Account, service::CreateUnverifiedAccountDto};
 use fake::{
     faker,
     faker::internet::en::{Password, SafeEmail, Username},
@@ -8,7 +6,7 @@ use fake::{
 };
 use matrix::{
     admin::resources::room::{
-        DeleteParams, ListParams, ListResponse, RoomService as AdminRoomService
+        DeleteParams, ListParams, ListResponse, RoomService as AdminRoomService,
     },
     Client,
 };
@@ -40,7 +38,7 @@ async fn create_rooms(env: &Environment, i: usize) -> Vec<AccountWithRoom> {
                 "{j} - discussion about {buzzword}",
                 buzzword = faker::company::en::Buzzword().fake::<String>()
             ),
-            alias: format!("{j}-{username}",  username = account_dto.username),
+            alias: format!("{j}-{username}", username = account_dto.username),
         };
 
         let account = env
@@ -97,8 +95,12 @@ async fn remove_rooms(client: &Client) {
 mod tests {
     use std::future;
 
-    use matrix::{admin::resources::room::{OrderBy, MessagesParams, EventContextParams}, ruma_common::{RoomId, EventId, server_name, ServerName, OwnedEventId}, events::{AnyMessageLikeEvent, AnyStateEvent}};
-    use tokio::sync::{OnceCell, futures};
+    use matrix::{
+        admin::resources::room::{EventContextParams, MessagesParams, OrderBy},
+        events::{AnyMessageLikeEvent, AnyStateEvent},
+        ruma_common::{server_name, EventId, OwnedEventId, RoomId, ServerName},
+    };
+    use tokio::sync::{futures, OnceCell};
 
     use super::*;
 
@@ -106,10 +108,11 @@ mod tests {
     static ACCOUNTS: OnceCell<Vec<AccountWithRoom>> = OnceCell::const_new();
     static RAND_EVENT_ID: OnceCell<OwnedEventId> = OnceCell::const_new();
 
-
     async fn init_env() -> Environment {
         let mut env = Environment::new().await;
-        env.client.set_token(env.config.synapse_admin_token.clone()).unwrap();
+        env.client
+            .set_token(env.config.synapse_admin_token.clone())
+            .unwrap();
         remove_rooms(&env.client).await;
 
         env
@@ -150,7 +153,9 @@ mod tests {
                 .iter()
                 .map(|acc| format!("#{}:{}", acc.room_dto.alias, env.config.synapse_server_name))
                 .collect::<Vec<_>>(),
-            resp.iter().map(|r| r.canonical_alias.clone().unwrap()).collect::<Vec<_>>(),
+            resp.iter()
+                .map(|r| r.canonical_alias.clone().unwrap())
+                .collect::<Vec<_>>(),
         );
 
         let ListResponse { rooms: resp, .. } = AdminRoomService::get_all(
@@ -164,14 +169,16 @@ mod tests {
         .unwrap();
 
         let mut creators = accounts_with_room
-                .iter()
-                .map(|acc| acc.account.username.clone())
-                .collect::<Vec<_>>();
+            .iter()
+            .map(|acc| acc.account.username.clone())
+            .collect::<Vec<_>>();
         creators.sort();
 
         assert_eq!(
             creators,
-            resp.iter().map(|r| r.creator.clone().unwrap()).collect::<Vec<_>>(),
+            resp.iter()
+                .map(|r| r.creator.clone().unwrap())
+                .collect::<Vec<_>>(),
         );
     }
 
@@ -200,40 +207,28 @@ mod tests {
         let magic_number = Box::into_raw(Box::new(12345)) as usize % accounts_with_room.len();
         let rand = accounts_with_room.iter().nth(magic_number).unwrap();
 
-        let resp = AdminRoomService::get_one(
-            &env.client,
-            &RoomId::parse(rand.room_id.clone()).unwrap(),
-        )
-        .await
-        .unwrap();
+        let resp =
+            AdminRoomService::get_one(&env.client, &RoomId::parse(rand.room_id.clone()).unwrap())
+                .await
+                .unwrap();
 
         assert_eq!(
-            Some(format!("#{}:{}", rand.room_dto.alias, env.config.synapse_server_name)),
+            Some(format!(
+                "#{}:{}",
+                rand.room_dto.alias, env.config.synapse_server_name
+            )),
             resp.canonical_alias,
         );
-        assert_eq!(
-            Some(rand.room_dto.name.clone()),
-            resp.name
-        );
-        assert_eq!(
-            Some(rand.account.username.clone()),
-            resp.creator,
-        );
+        assert_eq!(Some(rand.room_dto.name.clone()), resp.name);
+        assert_eq!(Some(rand.account.username.clone()), resp.creator,);
         assert_eq!(
             Some(rand.room_dto.topic.clone()),
             resp.details.map(|d| d.topic).flatten(),
         );
-        assert_eq!(
-            resp.join_rules,
-            Some("public".into())
-        );
+        assert_eq!(resp.join_rules, Some("public".into()));
 
-        assert!(
-            !resp.public
-        );
-        assert!(
-            resp.room_type.is_none()
-        );
+        assert!(!resp.public);
+        assert!(resp.room_type.is_none());
     }
 
     #[tokio::test]
@@ -262,19 +257,25 @@ mod tests {
             &env.client,
             &RoomId::parse(rand.room_id.clone()).unwrap(),
             // no idea what the type is
-            MessagesParams { from: "".into(), to: None, limit: None, filter: None, direction: None },
+            MessagesParams {
+                from: "".into(),
+                to: None,
+                limit: None,
+                filter: None,
+                direction: None,
+            },
         )
         .await
         .unwrap();
 
         let events = resp.chunk.deserialize().unwrap();
-        let rand_event = events.get(magic_number%events.len()).unwrap();
+        let rand_event = events.get(magic_number % events.len()).unwrap();
 
-        RAND_EVENT_ID.set( rand_event.clone().event_id().to_owned() ).unwrap();
+        RAND_EVENT_ID
+            .set(rand_event.clone().event_id().to_owned())
+            .unwrap();
 
-        assert!(
-            events.len() == 8,
-        );
+        assert!(events.len() == 8,);
     }
 
     #[tokio::test]
@@ -286,7 +287,13 @@ mod tests {
         let resp = AdminRoomService::get_room_events::<AnyStateEvent>(
             &env.client,
             &RoomId::new(<&ServerName>::try_from(env.config.synapse_server_name.as_str()).unwrap()),
-            MessagesParams { from: "".into(), to: None, limit: None, filter: None, direction: None },
+            MessagesParams {
+                from: "".into(),
+                to: None,
+                limit: None,
+                filter: None,
+                direction: None,
+            },
         )
         .await
         .unwrap();
@@ -300,16 +307,15 @@ mod tests {
         let magic_number = Box::into_raw(Box::new(12345)) as usize % accounts_with_room.len();
         let rand = accounts_with_room.iter().nth(magic_number).unwrap();
 
-        let resp = AdminRoomService::get_state(
-            &env.client,
-            &RoomId::parse(rand.room_id.clone()).unwrap(),
-        )
-        .await
-        .unwrap();
+        let resp =
+            AdminRoomService::get_state(&env.client, &RoomId::parse(rand.room_id.clone()).unwrap())
+                .await
+                .unwrap();
 
-        assert!(
-            resp.state.into_iter().all(|state| state.kind.contains("room"))
-        );
+        assert!(resp
+            .state
+            .into_iter()
+            .all(|state| state.kind.contains("room")));
     }
 
     #[tokio::test]
@@ -341,10 +347,7 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(
-            resp.members,
-            vec![rand.account.username.clone()]
-        );
+        assert_eq!(resp.members, vec![rand.account.username.clone()]);
     }
 
     #[tokio::test]
@@ -366,7 +369,7 @@ mod tests {
         let env = ENVIRONMENT.get_or_init(init_env).await;
         let accounts_with_room = ACCOUNTS.get_or_init(init_accounts).await;
 
-        while let false =  !RAND_EVENT_ID.initialized() {}
+        while let false = !RAND_EVENT_ID.initialized() {}
 
         let magic_number = Box::into_raw(Box::new(12345)) as usize % accounts_with_room.len();
         let rand = accounts_with_room.iter().nth(magic_number).unwrap();

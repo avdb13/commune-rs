@@ -2,5 +2,7 @@ pub mod error;
 pub mod service;
 
 pub use matrix::events::{
-    space, Raw, AnyMessageLikeEvent, StateEventContent,
+    space, AnyMessageLikeEventContent, MessageLikeEventType, StateEventContent, StaticEventContent, MessageLikeEventContent, EventContent,
 };
+
+pub use matrix::ruma_common;

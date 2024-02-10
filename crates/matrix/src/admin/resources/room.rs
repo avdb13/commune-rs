@@ -184,7 +184,6 @@ pub struct DeleteResponse {
     pub new_room_id: Option<OwnedRoomId>,
 }
 
-<<<<<<< HEAD
 /// serde refuses to deserialize `std::result::Result` as an enum
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]

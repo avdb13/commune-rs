@@ -7,6 +7,8 @@ pub struct V1;
 
 impl V1 {
     pub fn routes() -> Router {
-        Router::new().nest("/account", account::Account::routes())
+        Router::new()
+            .nest("/account", account::Account::routes())
+            .nest("/boards/:board_id", events::Events::routes())
     }
 }
